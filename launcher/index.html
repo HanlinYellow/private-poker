@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>私人扑克游戏</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#06130e;color:#eef7f2;font-family:Arial,"Microsoft YaHei",sans-serif;padding:18px}
+.panel{width:min(94vw,600px);background:#10271d;padding:28px;border-radius:22px;box-shadow:0 24px 80px #0009}
+h1{margin:0 0 8px;font-size:38px}p{opacity:.75}.modes{display:grid;gap:10px;margin:18px 0}
+.mode{border:2px solid #315b49;background:#0a1b14;padding:15px;border-radius:13px;cursor:pointer}.mode.active{border-color:#f0c64d;background:#17382b}.mode b{font-size:19px}.mode small{display:block;margin-top:4px;opacity:.7}
+input{width:100%;padding:13px;margin:7px 0;border-radius:10px;border:1px solid #315b49;background:#071711;color:white;font-size:16px}
+.row{display:flex;gap:10px;margin-top:10px}button{flex:1;border:0;border-radius:10px;padding:12px;background:#2d8b62;color:white;font-size:16px;font-weight:800;cursor:pointer}
+.msg{color:#ffc86e;min-height:22px;margin-top:10px}.joinTitle{border-top:1px solid #315b49;margin-top:20px;padding-top:16px}
+</style></head><body>
+<div class="panel">
+<h1>♠ 私人扑克游戏</h1>
+<p>创建房间时选择玩法；加入房间时只需要输入房间号，系统会自动识别玩法。</p>
+
+<div class="joinTitle" style="border-top:0;margin-top:8px;padding-top:0">创建房间</div>
+<div class="modes">
+  <div class="mode active" data-mode="zjh"><b>炸金花</b><small>正式规则 V4.4.6</small></div>
+  <div class="mode" data-mode="long"><b>德州扑克（长牌）</b><small>52张标准牌</small></div>
+  <div class="mode" data-mode="short"><b>德州扑克（短牌）</b><small>36张牌（6–A）</small></div>
+</div>
+<input id="name" placeholder="昵称">
+<div class="row"><button id="create">创建房间</button></div>
+
+<div class="joinTitle">加入已有房间</div>
+<input id="joinName" placeholder="昵称">
+<input id="room" placeholder="5位房间号" maxlength="5">
+<div class="row"><button id="join">加入房间</button></div>
+<div class="msg" id="msg"></div>
+</div>
+
+<script>
+let mode='zjh';
+const paths={zjh:'/games/zjh/',long:'/games/long/',short:'/games/short/'};
+document.querySelectorAll('.mode').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');mode=el.dataset.mode;
+});
+const msg=document.getElementById('msg');
+
+async function createRoom(){
+  const name=document.getElementById('name').value.trim();
+  if(!name){msg.textContent='请先输入昵称';return}
+  msg.textContent='正在创建房间...';
+  try{
+    const r=await fetch(`/api/rooms/allocate?mode=${encodeURIComponent(mode)}`);
+    const d=await r.json();
+    if(!d.ok){msg.textContent=d.msg||'创建失败';return}
+    const q=new URLSearchParams({auto:'create',name,room:d.code});
+    location.href=`${paths[mode]}?${q}`;
+  }catch(e){msg.textContent='服务器连接失败';}
+}
+
+async function joinRoom(){
+  const name=document.getElementById('joinName').value.trim();
+  const room=document.getElementById('room').value.trim();
+  if(!name){msg.textContent='请先输入昵称';return}
+  if(!/^\d{5}$/.test(room)){msg.textContent='请输入5位房间号';return}
+  msg.textContent='正在查找房间...';
+  try{
+    const r=await fetch(`/api/rooms/lookup?code=${encodeURIComponent(room)}`);
+    const d=await r.json();
+    if(!d.ok){msg.textContent='房间不存在';return}
+    const q=new URLSearchParams({auto:'join',name,room});
+    location.href=`${paths[d.mode]}?${q}`;
+  }catch(e){msg.textContent='服务器连接失败';}
+}
+document.getElementById('create').onclick=createRoom;
+document.getElementById('join').onclick=joinRoom;
+document.getElementById('room').oninput=e=>e.target.value=e.target.value.replace(/\D/g,'').slice(0,5);
+</script>
+</body></html>

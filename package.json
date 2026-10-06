@@ -1,0 +1,26 @@
+{
+  "name": "private-poker-deploy",
+  "version": "2.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "workspaces": [
+    "zhajinhua/client",
+    "holdem-long/client",
+    "holdem-short/client"
+  ],
+  "scripts": {
+    "build:zjh": "npm --workspace poker-suite-zjh-client run build",
+    "build:long": "npm --workspace poker-suite-long-client run build",
+    "build:short": "npm --workspace poker-suite-short-client run build",
+    "build": "npm run build:zjh && npm run build:long && npm run build:short && node scripts/assemble-public.mjs",
+    "start": "node server/index.js",
+    "dev": "npm run build && node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

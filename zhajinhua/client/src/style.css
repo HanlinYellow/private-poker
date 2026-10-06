@@ -1,0 +1,89 @@
+:root{font-family:Inter,"Microsoft YaHei",system-ui,sans-serif;color:#eef5f0;background:#0b1512}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#183d31,#0b1512 42%)}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.42;cursor:not-allowed}.page{max-width:1120px;margin:auto;padding:28px 18px 80px}.brand{color:#dcb765;font-weight:800;letter-spacing:.14em;font-size:12px}h1{font-size:42px;margin:8px 0 24px}h2{font-size:38px;margin:0}.muted{color:#93a49c}.msg{color:#ff9e95;font-weight:700}.lobby{display:grid;grid-template-columns:1fr auto 1fr auto;gap:10px;max-width:850px}.lobby input{padding:12px;border-radius:10px;border:1px solid #385048;background:#10221c;color:white}button{border:0;border-radius:10px;padding:10px 14px;background:#263d35;color:white}.primary{background:#d6a647;color:#171006;font-weight:800}.secondary{background:transparent;border:1px solid #53675f}.danger{background:#8f342d}.disabled{background:#33423c}.small{padding:6px 9px;font-size:12px}.roomHead{display:flex;justify-content:space-between;align-items:center;gap:15px}.headBtns{display:flex;gap:8px}.statusBar{display:flex;flex-wrap:wrap;gap:12px 24px;background:#12241e;border:1px solid #274038;padding:12px 15px;border-radius:12px;margin:18px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.player{background:#12221d;border:1px solid #2b4039;border-radius:14px;padding:14px}.player.self{outline:2px solid #d6a647}.top{display:flex;justify-content:space-between;gap:8px}.actions,.controls{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0}.plus{color:#76e3a8}.minus{color:#ff9a91}.table{background:radial-gradient(circle,#24745a,#16513f 65%,#0f382d);border:10px solid #62452b;border-radius:45%/32%;padding:35px 25px 45px;min-height:430px;box-shadow:inset 0 0 60px #082119}.center{text-align:center;margin-bottom:18px}.pot{font-size:28px;font-weight:900;color:#f4d17f}.seats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.seat{background:rgba(8,23,18,.72);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:11px;text-align:center}.selfSeat{outline:2px solid #e2b550}.turn{box-shadow:0 0 0 2px #7bd8ad}.cards{display:flex;justify-content:center;gap:5px;margin:8px 0}.pc{width:48px;height:68px;background:#fff;color:#111;border-radius:6px;display:grid;place-items:center;font-weight:800;box-shadow:0 2px 6px #0006}.pc.red{color:#c9302c}.pc.back{background:#1b3768;border:3px solid #eef2f5;color:#dbe8ff;font-size:25px}.info,.vote{margin:14px 0;padding:12px 14px;border-radius:10px;background:#172a23;border:1px solid #315046}.waiting{margin-top:28px;border-top:1px solid #294039;padding-top:14px}.wait{display:flex;justify-content:space-between;align-items:center;background:#12221d;padding:9px 12px;border-radius:9px;margin:6px 0}.selfWait{outline:2px solid #d6a647}.overlay{position:fixed;inset:0;background:#0009;display:grid;place-items:center;padding:20px;z-index:20}.modal{background:#13231e;border:1px solid #365149;border-radius:14px;padding:20px;width:min(420px,100%)}.target{display:block;width:100%;margin:8px 0}.rank{position:fixed;right:18px;bottom:18px;width:min(360px,calc(100% - 36px));max-height:70vh;overflow:auto;background:#101f1a;border:1px solid #395149;border-radius:14px;padding:14px;z-index:15;box-shadow:0 12px 40px #0007}.rankHead{display:flex;justify-content:space-between}.rank li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #22372f}.rank em{font-style:normal}.bankruptTitle{margin-top:14px;padding:7px 8px;background:#3a2523;color:#ffb7b1;font-weight:800;border-radius:7px}.rank ul{list-style:none;padding-left:0}@media(max-width:760px){.lobby{grid-template-columns:1fr}.seats{grid-template-columns:1fr 1fr}.table{border-radius:28px;padding:24px 12px}.roomHead{align-items:flex-start}.pc{width:42px;height:60px}}
+
+.resultBanner{margin:16px auto;padding:16px;border-radius:14px;border:2px solid #d6a647;background:#182820;box-shadow:0 8px 28px #0005;text-align:center}
+.resultBanner strong{display:block;font-size:18px;margin-bottom:8px;color:#f4d17f}
+.bigResult{font-size:24px;font-weight:900;margin:10px 0 14px}
+.compareBanner{border-color:#5fa8d3}.compareResult{border-color:#d6a647}.showdownResult{border-color:#e5c56e}
+.showdownGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}
+.showdownPlayer{background:#102019;border:1px solid #314c42;border-radius:12px;padding:10px}
+
+/* V4.4.2 additions */
+html,body,#root{max-width:100%;overflow-x:hidden}
+.seat,.player,.wait,.table,.seats{min-width:0}
+.seatHead{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.tiny{padding:4px 7px;font-size:11px}
+.reconnecting{margin:5px 0;color:#ffd27a;font-size:12px;font-weight:700}
+.foldedSeat{opacity:.72}
+.pc.back.foldedBack{background:#4e5357;border-color:#aeb4b8;color:#c9ced1;filter:grayscale(1)}
+.confirmModal p{line-height:1.6;color:#d9e4de}
+.modalBtns{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+@media(max-width:760px){
+  .page{width:100%;max-width:100%;padding:14px 10px 72px}
+  h1{font-size:30px}
+  h2{font-size:30px}
+  .roomHead{gap:8px;flex-wrap:wrap}
+  .headBtns{width:100%;justify-content:flex-end}
+  .statusBar{gap:8px 12px;padding:10px;font-size:14px}
+  .table{width:100%;max-width:100%;min-height:0;border-width:7px;border-radius:24px;padding:18px 8px 24px;overflow:hidden}
+  .seats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  .seat{padding:8px 5px;overflow:hidden}
+  .seatHead strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cards{gap:3px;max-width:100%;overflow:hidden}
+  .pc{width:clamp(28px,10vw,38px);height:clamp(42px,15vw,56px);font-size:12px;flex:0 1 auto}
+  .pc.back{border-width:2px;font-size:18px}
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .controls button{width:100%;min-width:0;padding:10px 6px;font-size:13px;white-space:normal}
+  .resultBanner{padding:12px 9px}
+  .bigResult{font-size:20px}
+  .showdownGrid{grid-template-columns:1fr}
+  .rank{right:8px;bottom:8px;width:calc(100% - 16px)}
+  .modal{width:min(94vw,420px);max-height:80vh;overflow:auto}
+}
+
+@media(max-width:390px){
+  .pc{width:28px;height:42px;font-size:11px}
+  .seat{font-size:12px}
+  .pot{font-size:24px}
+}
+
+/* V4.4.3：暗弃/比牌出局使用灰色牌背；明弃仍展示牌面，但整体弱化以表示已退出本局 */
+.pc.back.foldedBack{
+  background:#50565b!important;
+  border-color:#a5aaad!important;
+  color:#d7dadc!important;
+  filter:grayscale(1);
+}
+.foldedSeat .pc:not(.back){
+  opacity:.62;
+  filter:grayscale(.45);
+}
+.revealFold{background:#70502e}
+.reconnecting{font-weight:700;color:#f0c873}
+
+.lastAction{margin-top:5px;font-size:12px;color:#f0c873}
+.settlementOverlay{position:relative;margin:18px 0;z-index:12}
+.settlementPanel{background:#101f1a;border:2px solid #d6a647;border-radius:18px;padding:18px;box-shadow:0 14px 40px #0007}
+.settlementPanel h2{text-align:center;color:#f4d17f;margin:4px 0 8px}
+.settlementResult{text-align:center;font-size:22px;font-weight:900;margin-bottom:16px}
+.settlementGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.settlementPlayer{background:#152720;border:1px solid #345046;border-radius:14px;padding:12px;text-align:center}
+.settlementWinner{border:2px solid #e3bd58}
+.settlementLoser{opacity:.74;filter:grayscale(.7)}
+.settlementWinner .pc{filter:none!important;opacity:1!important}
+.settlementName{font-weight:900;font-size:17px;margin-bottom:5px}
+.settlementCards{justify-content:center;margin:10px 0}
+.settlementAction{font-size:13px;color:#c2d0ca;margin:6px 0}
+.settlementAck{display:block;margin:16px auto 0}
+@media(max-width:760px){
+  .settlementGrid{grid-template-columns:1fr 1fr}
+  .settlementPlayer{padding:8px}
+  .settlementPanel{padding:12px}
+  .settlementCards .pc{width:38px;height:54px;font-size:12px}
+}
+@media(max-width:430px){.settlementGrid{grid-template-columns:1fr}}
+
+.compareOwnCards{margin:12px auto 16px;padding:12px;border-radius:12px;background:#102019;max-width:360px}
+.compareOwnCards .cards{justify-content:center;margin:8px 0}
+.compareLostCards{opacity:.78;filter:grayscale(.8)}
+.compareCardHint{font-size:13px;color:#c6d6cf;margin-top:6px}

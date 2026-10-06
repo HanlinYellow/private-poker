@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "cors": "^2.8.5"
+  },
+  "name": "poker-suite-zjh-server"
+}
