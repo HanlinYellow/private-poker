@@ -64,7 +64,11 @@ function App(){
   const [showRanking,setShowRanking]=useState(false);
   const [showLast,setShowLast]=useState(false);
   const [confirm,setConfirm]=useState(null);
+  const [motionCards,setMotionCards]=useState([]);
+  const [motionChips,setMotionChips]=useState([]);
   const autoDone=useRef(false);
+  const prevRoomRef=useRef(null);
+  const motionSeq=useRef(1);
 
   useEffect(()=>{const h=r=>setRoom(r);socket.on('room',h);return()=>socket.off('room',h)},[]);
   useEffect(()=>{
@@ -120,6 +124,76 @@ function App(){
   const minRaiseTotal=g&&me?Math.min(maxTotal,Math.max(g.currentBet+g.minRaise,g.currentBet)):0;
 
   useEffect(()=>{if(turn&&g&&me)setRaise(Math.min(maxTotal,Math.max(g.currentBet+g.minRaise,g.currentBet)))},[turn,g?.currentBet,g?.minRaise,me?.chips,me?.streetBet]);
+
+
+  function queueCardFlight(targetToken,{delay=0,boardIndex=null}={}){
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    requestAnimationFrame(()=>{
+      const stage=document.querySelector('.pokerStage');
+      const board=document.querySelector('.pokerStage .board');
+      if(!stage||!board)return;
+      const br=board.getBoundingClientRect();
+      const deck=document.querySelector('.pokerStage .deckStack');
+      const dr=deck?.getBoundingClientRect();
+      const sx=dr?dr.left+dr.width/2:br.left+br.width*.72, sy=dr?dr.top+dr.height/2:br.top+br.height*.49;
+      let tx,ty,small=true;
+      if(boardIndex!==null){
+        const bc=document.querySelector('.pokerStage .boardCards');
+        const tr=(bc||board).getBoundingClientRect();
+        const step=Math.min(68,Math.max(50,tr.width/5.5));
+        tx=tr.left+tr.width/2+(boardIndex-2)*step;
+        ty=tr.top+tr.height/2;
+        small=false;
+      }else{
+        const el=[...document.querySelectorAll('.pokerStage .player')].find(x=>x.dataset.playerToken===targetToken);
+        if(!el)return;
+        const cards=el.querySelector('.cards.small')||el;
+        const tr=cards.getBoundingClientRect();
+        tx=tr.left+tr.width/2; ty=tr.top+tr.height/2;
+      }
+      const id=motionSeq.current++;
+      setMotionCards(v=>[...v,{id,sx,sy,tx,ty,delay,small}]);
+      setTimeout(()=>setMotionCards(v=>v.filter(x=>x.id!==id)),delay+720);
+    });
+  }
+  function queueChipFlight(targetToken,amount,{delay=0}={}){
+    if(!amount||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    requestAnimationFrame(()=>{
+      const el=[...document.querySelectorAll('.pokerStage .player')].find(x=>x.dataset.playerToken===targetToken);
+      const pot=document.querySelector('.pokerStage .pot');
+      if(!el||!pot)return;
+      const from=(el.querySelector('.chipStack')||el).getBoundingClientRect();
+      const to=pot.getBoundingClientRect();
+      const id=motionSeq.current++;
+      setMotionChips(v=>[...v,{id,sx:from.left+from.width/2,sy:from.top+from.height/2,tx:to.left+to.width/2,ty:to.top+to.height/2,delay,amount}]);
+      setTimeout(()=>setMotionChips(v=>v.filter(x=>x.id!==id)),delay+780);
+    });
+  }
+
+  useEffect(()=>{
+    if(!room){prevRoomRef.current=null;return}
+    const prev=prevRoomRef.current;
+    if(prev){
+      const newHand=room.status==='playing'&&(prev.status!=='playing'||prev.handNo!==room.handNo);
+      if(newHand){
+        const active=room.players.filter(p=>p.inHand).slice().sort((a,b)=>a.seat-b.seat);
+        active.forEach((p,i)=>{queueCardFlight(p.token,{delay:i*105});queueCardFlight(p.token,{delay:(active.length+i)*105})});
+      }
+      const oldBoard=prev.game?.board||[], newBoard=room.game?.board||[];
+      if(room.status==='playing'&&prev.handNo===room.handNo&&newBoard.length>oldBoard.length){
+        for(let i=oldBoard.length;i<newBoard.length;i++)queueCardFlight(null,{delay:(i-oldBoard.length)*135,boardIndex:i});
+      }
+      if(room.status==='playing'){
+        room.players.forEach((p,i)=>{
+          const old=prev.players?.find(x=>x.token===p.token);
+          if(!old)return;
+          const spent=(old.chips||0)-(p.chips||0);
+          if(spent>0)queueChipFlight(p.token,spent,{delay:i*28});
+        });
+      }
+    }
+    prevRoomRef.current=room;
+  },[room]);
 
   function enter(kind){
     socket.emit(kind,kind==='createRoom'?{name}:{roomId,name},r=>{
@@ -204,6 +278,9 @@ function App(){
   </div></div>;
 
   const stateText=room.status==='waiting'?'等待开始':room.status==='winnerReveal'?'等待赢家选择亮牌':room.status==='settlement'?'结算中':streetName[g?.street]||'';
+  const visiblePlayers=room.players.filter(p=>room.status!=='playing'||p.inHand).slice().sort((a,b)=>a.seat-b.seat);
+  const myVisibleIndex=visiblePlayers.findIndex(p=>p.token===token);
+  const tablePlayers=myVisibleIndex>0?[...visiblePlayers.slice(myVisibleIndex),...visiblePlayers.slice(0,myVisibleIndex)]:visiblePlayers;
   return <div className="app">
     <header>
       <div><b>房间 {room.id}</b> · 第 {room.handNo} 局</div>
@@ -216,31 +293,44 @@ function App(){
     </header>
 
     <main><div className="table">
-      <div className="board">
-        <div className="street">{stateText}</div>
-        <div className="cards boardCards">{(g?.board||room.settlement?.board||[]).map((c,i)=><Card c={c} key={i}/>)}</div>
-        <div className="pot">底池：{g?.pot??0}</div>
-        {g?.message&&<div className="gameMsg">{g.message}</div>}
-      </div>
+      <div className={`pokerStage playerCount${tablePlayers.length}`}>
+        <div className="tableGlow"/>
+        <div className="motionLayer" aria-hidden="true">
+          {motionCards.map(m=><div key={m.id} className={`flyingCard ${m.small?'smallFly':''}`} style={{'--sx':`${m.sx}px`,'--sy':`${m.sy}px`,'--tx':`${m.tx}px`,'--ty':`${m.ty}px`,'--delay':`${m.delay}ms`}}><span>♠</span></div>)}
+          {motionChips.map(m=><div key={m.id} className="flyingChipWrap" style={{'--sx':`${m.sx}px`,'--sy':`${m.sy}px`,'--tx':`${m.tx}px`,'--ty':`${m.ty}px`,'--delay':`${m.delay}ms`}}><div className="flyingChip">●</div><b>{m.amount}</b></div>)}
+        </div>
+        <div className="board">
+          <div className="tableMark">PRIVATE TABLE</div>
+          <div className="deckStack" aria-hidden="true"><i></i><i></i><span>♠</span></div>
+          <div className="street">{stateText}</div>
+          <div className="cards boardCards">{(g?.board||room.settlement?.board||[]).map((c,i)=><Card c={c} key={i}/>)}</div>
+          <div className="pot"><span className="chipMini">●</span> 底池 {g?.pot??0}</div>
+          {g?.message&&<div className="gameMsg">{g.message}</div>}
+        </div>
 
-      <div className="players">
-        {room.players.filter(p=>room.status!=='playing'||p.inHand).map(p=><div key={p.token} className={`player ${p.token===token?'me':''} ${g?.currentToken===p.token?'turn':''} ${p.folded?'folded':''}`}>
-          <div className="pname">{p.name}{p.token===room.hostToken?' 👑':''}{p.token===token?'（你）':''}</div>
-          <div>筹码 {p.chips}</div>
-          {room.status==='waiting'&&<div className={p.lastDelta>0?'plus':p.lastDelta<0?'minus':''}>上局：{fmt(p.lastDelta)}</div>}
-          {room.status==='waiting'&&<div className={`ready ${p.ready?'readyYes':'readyNo'}`}>{p.ready?'已准备':'未准备'}</div>}
-          {room.status==='playing'&&<div>本轮下注 {p.streetBet||0}</div>}
-          <div className="badges">
-            {g?.dealerSeat===p.seat&&<span>庄家</span>}
-            {g?.sbSeat===p.seat&&<span>小盲</span>}
-            {g?.bbSeat===p.seat&&<span>大盲</span>}
-            {p.allIn&&<span>ALL-IN</span>}{p.folded&&<span>弃牌</span>}{p.managed&&<span>托管中</span>}
-            {!p.connected&&!p.managed&&<span>重连中</span>}
-          </div>
-          <div className="cards small">{(p.cards||[]).map((c,i)=><Card c={c} key={i}/>)}</div>
-          {p.lastAction&&room.status==='playing'&&<div className="lastAction">{p.lastAction}</div>}
-          {isHost&&p.token!==token&&<button className="kick" onClick={()=>kick(p.token,p.name)}>踢出</button>}
-        </div>)}
+        <div className="players">
+          {tablePlayers.map((p,i)=><div key={p.token} data-player-token={p.token} className={`player seatPos${i} ${p.token===token?'me':''} ${g?.currentToken===p.token?'turn':''} ${p.folded?'folded':''}`}>
+            <div className="avatar" aria-hidden="true">{(p.name||'?').trim().slice(0,1).toUpperCase()}</div>
+            <div className="playerMeta">
+              <div className="pname">{p.name}{p.token===room.hostToken?' 👑':''}{p.token===token?'（你）':''}</div>
+              <div className="seatLabel">座位 {p.seat+1}</div>
+            </div>
+            <div className="chipStack"><span>●</span>{p.chips}</div>
+            {room.status==='waiting'&&<div className={p.lastDelta>0?'plus':p.lastDelta<0?'minus':''}>上局：{fmt(p.lastDelta)}</div>}
+            {room.status==='waiting'&&<div className={`ready ${p.ready?'readyYes':'readyNo'}`}>{p.ready?'● 已准备':'○ 未准备'}</div>}
+            {room.status==='playing'&&<div className="streetBet">本轮 {p.streetBet||0}</div>}
+            <div className="badges">
+              {g?.dealerSeat===p.seat&&<span className="dealerBadge">D</span>}
+              {g?.sbSeat===p.seat&&<span>SB</span>}
+              {g?.bbSeat===p.seat&&<span>BB</span>}
+              {p.allIn&&<span className="allinBadge">ALL-IN</span>}{p.folded&&<span>弃牌</span>}{p.managed&&<span>托管</span>}
+              {!p.connected&&!p.managed&&<span>重连</span>}
+            </div>
+            <div className="cards small">{(p.cards||[]).map((c,j)=><Card c={c} key={j}/>)}</div>
+            {p.lastAction&&room.status==='playing'&&<div className="lastAction">{p.lastAction}</div>}
+            {isHost&&p.token!==token&&<button className="kick" onClick={()=>kick(p.token,p.name)}>踢</button>}
+          </div>)}
+        </div>
       </div>
 
       {room.waiting.length>0&&<div className="waitingArea">

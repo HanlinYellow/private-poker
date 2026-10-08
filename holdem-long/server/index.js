@@ -39,6 +39,31 @@ function findByName(r,name){return allMembers(r).find(p=>p.name===name)}
 function roomOf(socket){return rooms[socket.data.room]}
 function seatedSorted(r){return [...r.players].sort((a,b)=>a.seat-b.seat)}
 function nextFreeSeat(r){const used=new Set(r.players.map(p=>p.seat));for(let i=0;i<MAX_SEATED;i++)if(!used.has(i))return i;return MAX_SEATED}
+function compactSeatedPlayers(r,before=null){
+  // 座位采用连续编号：有人在非游戏阶段离开后，后面的玩家依次前移；新加入者排到末位。
+  const old=before||seatedSorted(r);
+  const oldDealerSeat=r.dealerSeat;
+  const oldDealer=oldDealerSeat==null?null:old.find(p=>p.seat===oldDealerSeat);
+  const remaining=new Set(r.players.map(p=>p.token));
+  let nextDealerToken=null;
+  if(oldDealerSeat!=null && (!oldDealer || !remaining.has(oldDealer.token)) && r.players.length){
+    const ordered=[...old].sort((a,b)=>a.seat-b.seat);
+    const after=ordered.filter(p=>p.seat>oldDealerSeat).concat(ordered.filter(p=>p.seat<=oldDealerSeat));
+    nextDealerToken=after.find(p=>remaining.has(p.token))?.token||null;
+  }
+  r.players=seatedSorted(r);
+  r.players.forEach((p,i)=>{p.seat=i});
+  if(oldDealerSeat!=null){
+    if(oldDealer && remaining.has(oldDealer.token)){
+      r.dealerSeat=r.players.find(p=>p.token===oldDealer.token)?.seat??null;
+    }else if(nextDealerToken){
+      const next=r.players.find(p=>p.token===nextDealerToken);
+      r.dealerSeat=next?(next.seat===0?r.players.length-1:next.seat-1):null;
+    }else if(!r.players.length){
+      r.dealerSeat=null;
+    }
+  }
+}
 function nextSeated(r,seat,pred=()=>true){
   const ps=seatedSorted(r); if(!ps.length)return null;
   let idx=ps.findIndex(p=>p.seat===seat); if(idx<0)idx=-1;
@@ -103,6 +128,7 @@ function buildSidePots(r){
   return pots;
 }
 function moveBankruptNow(r){
+  const before=seatedSorted(r);
   const busted=r.players.filter(p=>p.chips<=0);
   if(!busted.length)return;
   for(const p of busted){
@@ -111,6 +137,7 @@ function moveBankruptNow(r){
     r.bankrupt.push(p);syncAccount(r,p);
   }
   r.players=r.players.filter(p=>p.chips>0);
+  compactSeatedPlayers(r,before);
   if(!r.players.some(p=>p.token===r.host)){
     const nh=r.players[0]||r.waiting[0];
     if(nh)r.host=nh.token;
@@ -152,9 +179,11 @@ function finishSettlement(r){
   r.status='waiting';r.settlement=null;r.game={message:'等待开始'};syncAll(r);broadcast(r);
 }
 function moveBustedAfterAck(r,token){
+  const before=seatedSorted(r);
   const p=r.players.find(x=>x.token===token);
   if(!p||p.chips>0)return;
   r.players=r.players.filter(x=>x.token!==token);
+  compactSeatedPlayers(r,before);
   p.seat=null;p.ready=false;p.inHand=false;
   if(!p.bankruptAt)p.bankruptAt=Date.now();
   if(!r.bankrupt.some(x=>x.token===p.token))r.bankrupt.push(p);
@@ -294,7 +323,9 @@ function startHand(r){
   broadcast(r);if(first)maybeAuto(r);else continueAllInRunout(r);return {ok:true};
 }
 function removeActiveReference(r,p){
+  const before=seatedSorted(r),wasSeated=r.players.some(x=>x.token===p.token);
   r.players=r.players.filter(x=>x.token!==p.token);r.waiting=r.waiting.filter(x=>x.token!==p.token);r.bankrupt=r.bankrupt.filter(x=>x.token!==p.token);
+  if(wasSeated)compactSeatedPlayers(r,before);
   if(r.host===p.token){
     const nh=r.players[0]||r.waiting[0]||r.bankrupt[0];
     if(nh)r.host=nh.token;
@@ -325,7 +356,7 @@ function payload(r,viewer){
   return {
     id:r.id,status:r.status,hostToken:r.host,handNo:r.handNo,blind:b,
     allReady:r.players.filter(p=>p.chips>0).every(p=>p.token===r.host||p.ready),
-    players:r.players.map(p=>({token:p.token,name:p.name,seat:p.seat,chips:p.chips,lastDelta:p.lastDelta||0,ready:p.token===r.host?true:!!p.ready,connected:!!p.id,managed:!!p.managed,inHand:!!p.inHand,folded:!!p.folded,allIn:!!p.allIn,streetBet:p.streetBet||0,totalBet:p.totalBet||0,lastAction:p.lastAction||'',cards:r.status==='playing'?(p.inHand?(p.token===viewer?p.cards:['back','back']):[]):[]})),
+    players:seatedSorted(r).map(p=>({token:p.token,name:p.name,seat:p.seat,chips:p.chips,lastDelta:p.lastDelta||0,ready:p.token===r.host?true:!!p.ready,connected:!!p.id,managed:!!p.managed,inHand:!!p.inHand,folded:!!p.folded,allIn:!!p.allIn,streetBet:p.streetBet||0,totalBet:p.totalBet||0,lastAction:p.lastAction||'',cards:r.status==='playing'?(p.inHand?(p.token===viewer?p.cards:['back','back']):[]):[]})),
     waiting:r.waiting.map(p=>({token:p.token,name:p.name,chips:p.chips,lastDelta:p.lastDelta||0,connected:!!p.id,ready:false})),
     bankrupt:r.bankrupt.map(p=>({token:p.token,name:p.name,chips:p.chips,lastDelta:p.lastDelta||0,connected:!!p.id,bankruptAt:p.bankruptAt||0})),
     game:(r.status==='playing'||r.status==='winnerReveal')?{street:r.game.street,board:r.game.board,currentBet:r.game.currentBet,minRaise:r.game.minRaise,currentToken:r.game.currentToken,dealerSeat:r.game.dealerSeat,sbSeat:r.game.sbSeat,bbSeat:r.game.bbSeat,sb:r.game.sb,bb:r.game.bb,pot:r.players.reduce((s,p)=>s+p.totalBet,0),message:r.game.message||'',dealing:!!r.game.dealing}:null,

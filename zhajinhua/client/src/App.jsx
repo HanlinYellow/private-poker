@@ -35,7 +35,11 @@ export default function App(){
   const [confirm,setConfirm]=useState(null);
   const [foldOpen,setFoldOpen]=useState(false);
   const [now,setNow]=useState(Date.now());
+  const [motionCards,setMotionCards]=useState([]);
+  const [motionChips,setMotionChips]=useState([]);
   const autoDone=useRef(false);
+  const prevRoomRef=useRef(null);
+  const motionSeq=useRef(1);
 
   useEffect(()=>{ const t=setInterval(()=>setNow(Date.now()),1000); return()=>clearInterval(t); },[]);
   useEffect(()=>{
@@ -115,6 +119,54 @@ export default function App(){
     return `重连中... ${sec}s`;
   };
 
+
+  const queueZjhCard=(targetToken,delay=0)=>{
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    requestAnimationFrame(()=>{
+      const table=document.querySelector('.casinoTable');
+      const center=document.querySelector('.casinoTable .center');
+      const el=[...document.querySelectorAll('.casinoTable .seat')].find(x=>x.dataset.playerToken===targetToken);
+      if(!table||!center||!el)return;
+      const c=center.getBoundingClientRect(), t=(el.querySelector('.cards')||el).getBoundingClientRect();
+      const deck=document.querySelector('.casinoTable .deckStack');const d=deck?.getBoundingClientRect();
+      const id=motionSeq.current++;
+      setMotionCards(v=>[...v,{id,sx:d?d.left+d.width/2:c.left+c.width*.72,sy:d?d.top+d.height/2:c.top+c.height*.42,tx:t.left+t.width/2,ty:t.top+t.height/2,delay}]);
+      setTimeout(()=>setMotionCards(v=>v.filter(x=>x.id!==id)),delay+720);
+    });
+  };
+  const queueZjhChip=(targetToken,amount,delay=0)=>{
+    if(!amount||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    requestAnimationFrame(()=>{
+      const el=[...document.querySelectorAll('.casinoTable .seat')].find(x=>x.dataset.playerToken===targetToken);
+      const pot=document.querySelector('.casinoTable .pot');
+      if(!el||!pot)return;
+      const a=(el.querySelector('.chipStack')||el).getBoundingClientRect(),b=pot.getBoundingClientRect();
+      const id=motionSeq.current++;
+      setMotionChips(v=>[...v,{id,sx:a.left+a.width/2,sy:a.top+a.height/2,tx:b.left+b.width/2,ty:b.top+b.height/2,delay,amount}]);
+      setTimeout(()=>setMotionChips(v=>v.filter(x=>x.id!==id)),delay+780);
+    });
+  };
+
+  useEffect(()=>{
+    if(!room){prevRoomRef.current=null;return}
+    const prev=prevRoomRef.current;
+    if(prev){
+      const newRound=room.status==='playing'&&(prev.status!=='playing'||prev.roundNo!==room.roundNo);
+      if(newRound){
+        const active=room.players.filter(p=>p.inRound).slice().sort((a,b)=>a.seat-b.seat);
+        for(let round=0;round<3;round++)active.forEach((p,i)=>queueZjhCard(p.token,(round*active.length+i)*92));
+      }
+      if(room.status==='playing'){
+        room.players.forEach((p,i)=>{
+          const old=prev.players?.find(x=>x.token===p.token);if(!old)return;
+          const spent=(old.chips||0)-(p.chips||0);
+          if(spent>0)queueZjhChip(p.token,spent,i*26);
+        });
+      }
+    }
+    prevRoomRef.current=room;
+  },[room]);
+
   if(!room) return <main className="page"><div className="brand">♠ PRIVATE POKER</div><h1>炸金花 V4.4.6</h1><div className="lobby"><input placeholder="玩家名（房间内唯一账号）" value={name} onChange={e=>setName(e.target.value)} autoComplete="off"/><button className="primary" onClick={create}>创建房间</button><input placeholder="5位房间码" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,5))}/><button onClick={join}>加入</button></div><p className="muted">同一房间内玩家名唯一：在线同名不能加入；离线同名会继承原账号、筹码和状态。</p>{msg&&<p className="msg">{msg}</p>}</main>;
 
   const isHost=room.hostToken===token;
@@ -133,6 +185,9 @@ export default function App(){
   const nextBet=room.betLevel<160?({10:20,20:40,40:80,80:160}[room.betLevel]||160):160;
   const raiseCost=me?nextBet*(me.seen?2:1):0;
   const compareCost=me?room.betLevel*(me.seen?2:1):0;
+  const roundPlayers=room.players.filter(p=>p.inRound);
+  const myRoundIndex=roundPlayers.findIndex(p=>p.token===token);
+  const tablePlayers=myRoundIndex>0?[...roundPlayers.slice(myRoundIndex),...roundPlayers.slice(0,myRoundIndex)]:roundPlayers;
 
   return <main className="page">
     <header className="roomHead"><div><div className="muted">房间号</div><h2>{room.id}</h2></div><div className="headBtns"><button onClick={()=>setRank(true)}>排行榜</button><button className="secondary" onClick={leave}>退出房间</button></div></header>
@@ -143,7 +198,7 @@ export default function App(){
       <div className="actions">{!isHost&&me&&!me.bankrupt&&<button className={me.ready?'secondary':'primary'} onClick={()=>socket.emit('toggleReady',{},r=>!r?.ok&&setMsg(r?.msg||'操作失败'))}>{me.ready?'取消准备':'准备'}</button>}{isHost&&<button disabled={!canStart} className={canStart?'primary':'disabled'} onClick={()=>socket.emit('startGame',{},r=>!r?.ok&&setMsg(r?.msg||'开始失败'))}>{canStart?'开始游戏':'等待所有客机准备'}</button>}</div>
     </>:room.status==='playing'?<>
       <div className="statusBar"><span>第 {room.roundNo} 轮 · 第 {room.circleNo} 圈</span><span>底池 {room.pot}</span><span>下注档 {room.betLevel}</span><span>{myTurn?'轮到你':'等待其他玩家'}</span></div>
-      <section className="table"><div className="center"><div className="pot">底池 {room.pot}</div><div>{room.gameMessage||'牌局进行中'}</div></div><div className="seats">{room.players.filter(p=>p.inRound).map(p=><article key={p.token} className={`seat ${p.token===token?'selfSeat':''} ${p.token===room.currentToken?'turn':''} ${p.folded?'foldedSeat':''}`}><div className="seatHead"><strong>{p.name}{p.token===room.hostToken?' 👑':''}{p.token===token?'（你）':''}</strong>{isHost&&p.token!==token&&<button className="danger tiny" onClick={()=>ask(`确认在牌局中踢出 ${p.name}？其本局已投入筹码不会退回。`,'kickPlayer',{targetToken:p.token})}>踢</button>}</div><div>筹码 {p.chips}</div>{!p.connected&&<div className="reconnecting">{reconnectText(p)}{p.token===room.currentToken?` · 当前档${room.betLevel<=40?'自动跟注':'自动弃牌'}`:''}</div>}<div className="cards">{(p.cards||[]).map((c,i)=><Card card={c} folded={p.folded||p.eliminated} key={i}/>)}</div><div>{p.folded?(p.foldReveal?'已明弃':'已暗弃'):p.eliminated?'比牌出局':p.seen?'已看牌':'暗牌'}</div>{p.lastAction&&<div className="lastAction">{p.lastAction}</div>}</article>)}</div></section>
+      <section className={`table casinoTable playerCount${tablePlayers.length}`}><div className="motionLayer" aria-hidden="true">{motionCards.map(m=><div key={m.id} className="flyingCard smallFly" style={{'--sx':`${m.sx}px`,'--sy':`${m.sy}px`,'--tx':`${m.tx}px`,'--ty':`${m.ty}px`,'--delay':`${m.delay}ms`}}><span>♠</span></div>)}{motionChips.map(m=><div key={m.id} className="flyingChipWrap" style={{'--sx':`${m.sx}px`,'--sy':`${m.sy}px`,'--tx':`${m.tx}px`,'--ty':`${m.ty}px`,'--delay':`${m.delay}ms`}}><div className="flyingChip">●</div><b>{m.amount}</b></div>)}</div><div className="center"><div className="tableMark">ZHA JIN HUA</div><div className="deckStack" aria-hidden="true"><span>♠</span></div><div className="pot"><span className="chipMini">●</span> 底池 {room.pot}</div><div className="centerMessage">{room.gameMessage||'牌局进行中'}</div></div><div className="seats">{tablePlayers.map((p,i)=><article key={p.token} data-player-token={p.token} className={`seat seatPos${i} ${p.token===token?'selfSeat':''} ${p.token===room.currentToken?'turn':''} ${p.folded?'foldedSeat':''}`}><div className="avatar">{(p.name||'?').trim().slice(0,1).toUpperCase()}</div><div className="seatHead"><strong>{p.name}{p.token===room.hostToken?' 👑':''}{p.token===token?'（你）':''}</strong>{isHost&&p.token!==token&&<button className="danger tiny" onClick={()=>ask(`确认在牌局中踢出 ${p.name}？其本局已投入筹码不会退回。`,'kickPlayer',{targetToken:p.token})}>踢</button>}</div><div className="seatNo">座位 {p.seat}</div><div className="chipStack"><span>●</span>{p.chips}</div>{!p.connected&&<div className="reconnecting">{reconnectText(p)}{p.token===room.currentToken?` · 当前档${room.betLevel<=40?'自动跟注':'自动弃牌'}`:''}</div>}<div className="cards">{(p.cards||[]).map((c,j)=><Card card={c} folded={p.folded||p.eliminated} key={j}/>)}</div><div className="cardState">{p.folded?(p.foldReveal?'已明弃':'已暗弃'):p.eliminated?'比牌出局':p.seen?'已看牌':'暗牌'}</div>{p.lastAction&&<div className="lastAction">{p.lastAction}</div>}</article>)}</div></section>
 
       {me?.inRound&&!me.folded&&!me.eliminated&&<div className="controls">
         {!me.seen&&<button disabled={!myTurn} onClick={()=>ask('确认看牌？看牌后跟注/加注费用翻倍。','viewCards')}>看牌</button>}
