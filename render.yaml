@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: private-poker
-    runtime: node
-    plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/health
-    autoDeploy: true
